@@ -1,14 +1,14 @@
 # dbox — dev container + Tailscale sidecar.
 # The dev container shares the sidecar's network namespace, so its sshd is
-# reachable on the tailnet (as "dbox") without the dev container being privileged.
+# reachable on the tailnet (as ${DBOX_HOSTNAME}) without the dev container being privileged.
 
 services:
   tailscale:
     image: tailscale/tailscale:latest
-    hostname: dbox
+    hostname: ${DBOX_HOSTNAME:-dbox}
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY}
-      TS_HOSTNAME: dbox
+      TS_HOSTNAME: ${DBOX_HOSTNAME:-dbox}
       TS_STATE_DIR: /var/lib/tailscale
       TS_USERSPACE: "false"
     volumes:

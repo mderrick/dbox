@@ -1,115 +1,94 @@
 # dbox
 
-A single Docker container that _is_ a dev box — SSH + tmux + fish + Claude Code —
-reachable over Tailscale by a stable name (`dbox.<tailnet>.ts.net`), persisting
-long-running Claude sessions with the laptop shut. Runs identically on a
-DigitalOcean Droplet and a Mac mini. See [PLAN.md](./PLAN.md) for the full design.
+```
+     _ _
+  __| | |__   _____  __
+ / _` | '_ \ / _ \ \/ /
+| (_| | |_) | (_) >  <
+ \__,_|_.__/ \___/_/\_\
+```
+
+An opinionated dev container that feels local but runs remote so you can persist your Claude
+Code CLI sessions after you close the lid. SSH or VS Code in over Tailscale with tmux, fish, git,
+gh, and Claude Code baked in. Clone it and make it yours.
 
 ## Architecture
 
 ```
-   ┌──────────────┐          your laptop
-   │    laptop    │   ssh dev@dbox  ·  VSCode Remote-SSH
-   │  (tailnet)   │
-   └──────┬───────┘
-          │  WireGuard (Tailscale) · no public ports
-          │  MagicDNS: dbox.<tailnet>.ts.net
-══════════╪══════════════════ tailnet ══════════════════════
-          │
-   ┌──────▼──────────────────────────────────────────────┐
-   │  host: DigitalOcean Droplet  ·  Mac mini  ·  laptop  │
-   │  (only requirement: Docker)                          │
-   │                                                      │
-   │   docker compose                                     │
-   │   ┌────────────────────┐   ┌──────────────────────┐ │
-   │   │  tailscale sidecar │   │   dev container      │ │
-   │   │  image: tailscale  │◀──┤  network_mode:       │ │
-   │   │  · NET_ADMIN       │   │    service:tailscale │ │
-   │   │  · /dev/net/tun    │   │  (shares netns →     │ │
-   │   │  · owns tailnet    │   │   sshd on tailnet,   │ │
-   │   │    identity "dbox" │   │   unprivileged)      │ │
-   │   └─────────┬──────────┘   │                      │ │
-   │             │              │  sshd (pubkey only)  │ │
-   │             │              │  tmux · fish         │ │
-   │             │              │  claude · gh · git   │ │
-   │             │              │  user: dev (1000)    │ │
-   │             │              └──────────┬───────────┘ │
-   │             │                         │ bind mounts  │
-   │             ▼                         ▼              │
-   │   ./data/tailscale          ./data/{workspace,      │
-   │   (node identity)            claude, gh, fish,       │
-   │                              sshkeys}                │
-   └──────────────────────────────────────────────────────┘
-        persistent state on host  ·  survives rebuilds
+   your laptop
+     │  ssh dev@dbox  ·  VS Code Remote-SSH
+     ▼
+  ┄┄┄┄┄┄┄┄┄┄ Tailscale tailnet ┄┄┄┄┄┄┄┄┄┄
+     │
+  ┌──▼──────────────────────────────────────────┐
+  │ host: VPS / Mac mini  (needs Docker)        │
+  │                                             │
+  │ docker compose                              │
+  │  ┌───────────┐      ┌────────────────┐      │
+  │  │ tailscale │─────▶│ dev container  │      │
+  │  │  sidecar  │      │                │      │
+  │  └───────────┘      └────────────────┘      │
+  └─────────────────────────────────────────────┘
 ```
 
-- **One SSH endpoint** (`dbox`) for both tmux and VSCode — the container *is* the box.
-- **Tailscale sidecar** owns the tailnet identity; the dev container shares its
-  network namespace, so `sshd` is reachable on the tailnet without being privileged.
-- **All state in `./data/`** (bind mounts) → auth, repos, and host key survive
+- **Tailscale sidecar** gives the container its tailnet identity (`dbox`), so it's
+  reachable from anywhere on your tailnet.
+- **Dev container state in `./data/`** (bind mounts) → auth, repos, and host key survive
   rebuilds. tmux protects sessions across SSH drops, not container restarts.
 
-## Quick start (local)
+## Quick install
 
-1. **Configure secrets**
+On your host VPS/Mac Mini start up the dev container:
 
-   ```bash
-   cp .env.example .env
-   # Set TS_AUTHKEY (Tailscale admin → keys) and SSH_PUBKEY (cat ~/.ssh/id_ed25519.pub)
-   ```
+```bash
+git clone https://github.com/mderrick/dbox
+cd dbox
+cp .env.example .env # Update .env with your credentials
+docker compose up -d --build # The container joins your tailnet as "dbox".
+```
 
-2. **Bring it up**
+On any device on the same tailnet you must authenticate your CLI tools on the dev container:
 
-   ```bash
-   docker compose up -d --build
-   ```
+```bash
+ssh dev@dbox
+gh auth login # A fine-grained token is advised
+claude        # Opens a URL — auth in your laptop browser
+```
 
-   The container joins your tailnet as **dbox**. Check the Tailscale admin console.
+## Usage
 
-3. **Connect**
+```bash
+# Clone a repo onto the dev container
+ssh -t dev@dbox 'git clone https://github.com/octocat/Hello-World.git ~/workspace/Hello-World'
 
-   ```bash
-   ssh dev@dbox.<your-tailnet>.ts.net
-   tmux attach -t main
-   ```
+# Start (or re-attach) a Claude session in a tmux named "claude-hello-world"
+ssh -t dev@dbox 'tmux new -As claude-hello-world -c ~/workspace/Hello-World claude'
+```
 
-   Or VSCode Remote-SSH to the same host, open `~/workspace`.
+Detach with the [`Ctrl-b` then `d`](https://research.it.iastate.edu/guides/pronto/interactive_computing/tmux/#detach-from-a-session)
+shortcut — Claude keeps running, so you can close your laptop. Re-attach later by
+running the same command again, from any device on the tailnet.
 
-4. **One-time auth inside the box (persists in ./data)**
+> The session survives SSH drops and your laptop sleeping. It does **not** survive
+> a container restart (`docker compose down`, host reboot) — that kills tmux and
+> the Claude process. Your files and logins persist (they're mounted on the host);
+> the live session does not.
 
-   ```bash
-   ssh dev@dbox
-   gh auth login   # GitHub.com → HTTPS → "Paste an authentication token"
-   claude          # opens a URL — auth in your laptop browser, paste code back
-   ```
+You can also open the remote in VS Code, if you have the [`code` CLI](https://code.visualstudio.com/docs/configure/command-line) installed:
 
-   For `gh`, paste a **fine-grained PAT** (Settings → Developer settings →
-   Fine-grained tokens) scoped to just the repos you'll use here, with
-   **Contents: R/W**, **Pull requests: R/W** (Claude uses `gh pr create`),
-   **Metadata: R**, and an expiry — least privilege for an unattended box.
-   `gh auth login` also configures git, so plain `git` over HTTPS works too.
-   (Web-browser OAuth is the convenient alternative, but account-wide with no
-   expiry.) Don't set `GITHUB_TOKEN` in `.env` — a token in the env makes
-   `gh auth login` refuse to run.
+```bash
+code --remote ssh-remote+dev@dbox /home/dev/workspace/Hello-World
+```
 
 ## Where state lives
 
 Everything persistent is under `./data/` (git-ignored), one folder to back up or wipe:
 
-| `./data/…`      | mount                 | holds                         |
-| --------------- | --------------------- | ----------------------------- |
-| `workspace`     | `~/workspace`         | your repos                    |
-| `claude`        | `~/.claude`           | Claude creds/settings/history |
-| `gh`            | `~/.config/gh`        | GitHub OAuth                  |
-| `fish`          | `~/.local/share/fish` | shell history                 |
-| `sshkeys`       | `/etc/ssh/keys`       | SSH host keys                 |
-| `tailscale`     | `/var/lib/tailscale`  | tailnet identity              |
-
-## Notes
-
-- **tmux** survives SSH disconnects (laptop shut), **not** container restarts —
-  volumes preserve files/auth, not live processes.
-- **Break-glass** (no Tailscale yet): uncomment the loopback `ports:` on the
-  `tailscale` service, then `ssh -p 2222 dev@localhost`. Local machines only.
-- Rebuild to update tooling/fish config: `docker compose up -d --build`.
-  Auth and work survive (they're in `./data/`).
+| `./data/…`  | mount                 | holds                         |
+| ----------- | --------------------- | ----------------------------- |
+| `workspace` | `~/workspace`         | your repos                    |
+| `claude`    | `~/.claude`           | Claude creds/settings/history |
+| `gh`        | `~/.config/gh`        | GitHub OAuth                  |
+| `fish`      | `~/.local/share/fish` | shell history                 |
+| `sshkeys`   | `/etc/ssh/keys`       | SSH host keys                 |
+| `tailscale` | `/var/lib/tailscale`  | tailnet identity              |

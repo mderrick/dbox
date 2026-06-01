@@ -1,0 +1,19 @@
+# dbox sshd — pubkey only, host keys on a persistent volume.
+Port 22
+
+# Persistent host keys (bind-mounted at /etc/ssh/keys) so the container's
+# identity is stable across rebuilds — no "HOST IDENTIFICATION CHANGED".
+HostKey /etc/ssh/keys/ssh_host_ed25519_key
+HostKey /etc/ssh/keys/ssh_host_rsa_key
+
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+KbdInteractiveAuthentication no
+AuthorizedKeysFile .ssh/authorized_keys
+
+UsePAM yes
+X11Forwarding no
+PrintMotd no
+AcceptEnv LANG LC_*
+Subsystem sftp /usr/lib/openssh/sftp-server

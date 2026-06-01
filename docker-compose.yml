@@ -1,0 +1,43 @@
+# dbox — dev container + Tailscale sidecar.
+# The dev container shares the sidecar's network namespace, so its sshd is
+# reachable on the tailnet (as "dbox") without the dev container being privileged.
+
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    hostname: dbox
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY}
+      TS_HOSTNAME: dbox
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+    volumes:
+      - ${DBOX_DATA:-./data}/tailscale:/var/lib/tailscale
+    devices:
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+    # BREAK-GLASS for the very first LOCAL boot only (before Tailscale is up).
+    # Loopback-bound so it is never exposed beyond this machine. Never use on a
+    # public host. Because the dev container shares this netns, this maps to its
+    # sshd. Uncomment, `docker compose up -d`, then `ssh -p 2222 dev@localhost`.
+    # ports:
+    #   - "127.0.0.1:2222:22"
+
+  dev:
+    build:
+      context: .
+    image: dbox:latest
+    depends_on:
+      - tailscale
+    network_mode: service:tailscale
+    environment:
+      SSH_PUBKEY: ${SSH_PUBKEY}
+    volumes:
+      - ${DBOX_DATA:-./data}/workspace:/home/dev/workspace
+      - ${DBOX_DATA:-./data}/claude:/home/dev/.claude
+      - ${DBOX_DATA:-./data}/gh:/home/dev/.config/gh
+      - ${DBOX_DATA:-./data}/fish:/home/dev/.local/share/fish
+      - ${DBOX_DATA:-./data}/sshkeys:/etc/ssh/keys
+    restart: unless-stopped

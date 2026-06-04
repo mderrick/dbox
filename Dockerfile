@@ -53,8 +53,12 @@ COPY config/config.fish /home/dev/.config/fish/config.fish
 COPY config/sshd_config /etc/ssh/sshd_config
 COPY config/entrypoint.sh /usr/local/bin/entrypoint.sh
 
+# Shared tmux-session launcher, called by both the `dbox` CLI and the VS Code
+# terminal profile so they produce the identical session layout.
+COPY config/dbox-session /usr/local/bin/dbox-session
+
 # Ownership + runtime dirs. ~/workspace and /etc/ssh/keys are bind-mount targets.
-RUN chmod +x /usr/local/bin/entrypoint.sh \
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/dbox-session \
     && mkdir -p /run/sshd /etc/ssh/keys /home/dev/workspace /home/dev/.config/fish \
     && chown -R dev:dev /home/dev
 

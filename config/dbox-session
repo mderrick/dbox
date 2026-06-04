@@ -1,0 +1,41 @@
+#!/bin/sh
+# dbox-session — attach to (or create) a per-project tmux session running Claude.
+#
+# Single source of truth for the session layout, shared by:
+#   • the `dbox terminal` laptop CLI  ->  ssh -t dev@dbox dbox-session <path>
+#   • the VS Code terminal profile    ->  exec dbox-session "$PWD"
+#
+# Layout: window 0 "shell" (fish), window 1 "claude"; attaches focused on
+# claude. Create-then-attach is idempotent, so reopening reattaches the live
+# session — which survives SSH drops (but not container restarts).
+set -eu
+
+WORKSPACE="$HOME/workspace"
+
+# Resolve the path arg to an absolute dir (mirrors `dbox` resolve_path):
+#   ""  -> ~/workspace   /x -> literal   ~ -> $HOME   ~/x -> $HOME/x
+#   x   -> ~/workspace/x
+arg="${1:-}"
+case "$arg" in
+  "")    dir="$WORKSPACE" ;;
+  /*)    dir="$arg" ;;
+  "~")   dir="$HOME" ;;
+  "~/"*) dir="$HOME/${arg#\~/}" ;;
+  *)     dir="$WORKSPACE/$arg" ;;
+esac
+
+# Session name: path relative to ~/workspace when under it (acme/api ->
+# acme-api), else the basename; sanitized (/, ., space -> -) for tmux.
+case "$dir" in
+  "$WORKSPACE"/*) rel="${dir#"$WORKSPACE"/}" ;;
+  *)              rel="$(basename "$dir")" ;;
+esac
+name="$(printf '%s' "$rel" | tr './ ' '-')"
+[ -n "$name" ] || name="workspace"
+
+if ! tmux has-session -t "$name" 2>/dev/null; then
+  tmux new-session -d -s "$name" -c "$dir" -n shell
+  tmux new-window  -t "$name" -c "$dir" -n claude claude
+fi
+tmux select-window -t "$name":claude
+exec tmux attach -t "$name"

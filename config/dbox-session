@@ -35,7 +35,9 @@ name="$(printf '%s' "$rel" | tr './ ' '-')"
 
 if ! tmux has-session -t "$name" 2>/dev/null; then
   tmux new-session -d -s "$name" -c "$dir" -n shell
-  tmux new-window  -t "$name" -c "$dir" -n claude claude
+fi
+if ! tmux list-windows -t "$name" -F '#{window_name}' 2>/dev/null | grep -qx 'claude'; then
+  tmux new-window -t "$name" -c "$dir" -n claude claude
 fi
 tmux select-window -t "$name":claude
 exec tmux attach -t "$name"

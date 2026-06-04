@@ -92,10 +92,11 @@ The VS Code integrated terminal runs _inside_ dbox, so it can launch Claude dire
     "args": ["-lc", "exec dbox-session \"$PWD\""],
     "icon": "sparkle"
   }
-}
+},
+"terminal.integrated.defaultProfile.linux": "dbox"
 ```
 
-You can now launch a remote claude session over tmux in your VSCode terminal `+` dropdown.
+New terminals will now open directly into a per-project tmux session (shell + claude windows), auto-attaching if one already exists for that directory.
 
 ### Reaching a dev server
 

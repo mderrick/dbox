@@ -20,7 +20,7 @@ Usage:
   dbox                      open an interactive shell in ~/workspace
   dbox code [path]          open the remote path in VS Code (Remote-SSH)
   dbox terminal [path]      attach/create a per-project tmux session
-                            (window 0: shell, window 1: claude)
+                            (window 0: shell, window 1: claude --remote-control)
   dbox exec <cmd...>        run a command on the box (≈ ssh dev@${HOST} ...)
   dbox ls                   list tmux sessions on the box
   dbox restart              rebuild + recreate the dev container on the host

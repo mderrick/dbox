@@ -96,7 +96,7 @@ The VS Code integrated terminal runs _inside_ dbox, so it can launch Claude dire
 "terminal.integrated.defaultProfile.linux": "dbox"
 ```
 
-New terminals will now open directly into a per-project tmux session (shell + claude windows), auto-attaching if one already exists for that directory.
+New terminals will now open directly into a per-project tmux session (shell + claude windows), auto-attaching if one already exists for that directory. The claude window is launched with `--remote-control`, so the same session can be driven from the Claude mobile app — remote-first by default.
 
 ### Reaching a dev server
 
@@ -118,7 +118,7 @@ Then, each `dbox` command maps to a raw equivalent from above:
 ```bash
 dbox                       # ssh -t dev@dbox  (interactive shell in ~/workspace)
 dbox exec git clone …      # ssh -t dev@dbox 'git clone …'
-dbox terminal Hello-World  # ssh -t dev@dbox dbox-session …   (tmux: shell + claude windows)
+dbox terminal Hello-World  # ssh -t dev@dbox dbox-session …   (tmux: shell + remote-control claude windows)
 dbox code Hello-World      # code --remote ssh-remote+dev@dbox /home/dev/workspace/Hello-World
 dbox ls                    # ssh dev@dbox tmux ls   (what's running, to reattach)
 dbox restart               # ssh dev@dbox dbox-restart  (rebuild + recreate the stack)

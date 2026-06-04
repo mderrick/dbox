@@ -22,8 +22,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Claude Code CLI
-RUN npm install -g @anthropic-ai/claude-code
+# Claude Code CLI — pinned so rebuilds are deterministic and bumping the version
+# busts Docker's layer cache (an unpinned `npm install -g` stays cached forever).
+RUN npm install -g @anthropic-ai/claude-code@2.1.162
 
 # Non-root dev user (UID/GID 1000), fish login shell, passwordless sudo
 RUN groupadd -g 1000 dev \

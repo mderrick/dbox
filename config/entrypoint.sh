@@ -27,9 +27,9 @@ chmod 644 /etc/ssh/keys/ssh_host_*_key.pub
 # so dev couldn't write to them. Force ownership to dev each boot. Essential on
 # the Linux Droplet; effectively a no-op on macOS (Docker Desktop maps owners).
 # `|| true` so a stray permission hiccup doesn't abort startup.
-mkdir -p /home/dev/workspace /home/dev/.claude /home/dev/.config/gh /home/dev/.local/share/fish
+mkdir -p /home/dev/workspace /home/dev/.claude /home/dev/.config/gh /home/dev/.local/share/fish /home/dev/.vscode-server
 chown 1000:1000 /home/dev/.config /home/dev/.local /home/dev/.local/share 2>/dev/null || true
-chown -R 1000:1000 /home/dev/workspace /home/dev/.claude /home/dev/.config/gh /home/dev/.local/share/fish 2>/dev/null || true
+chown -R 1000:1000 /home/dev/workspace /home/dev/.claude /home/dev/.config/gh /home/dev/.local/share/fish /home/dev/.vscode-server 2>/dev/null || true
 
 # --- 3. Install the laptop public key (this is how you SSH in) --------------
 # Read at runtime from the SSH_PUBKEY env (set in .env), not baked into the

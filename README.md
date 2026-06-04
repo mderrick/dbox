@@ -130,7 +130,7 @@ means `~/workspace`). The box defaults to the tailnet name `dbox` — point it e
 with `DBOX_HOST=<name>`. `dbox code` additionally needs the [`code` CLI](https://code.visualstudio.com/docs/configure/command-line)
 and the Remote-SSH extension on your laptop.
 
-## Rebuilding / restarting from inside
+### dbox restart
 
 The dev container can't reach the host's Docker daemon, so it can't restart
 itself directly. A small **`restarter` sidecar** does it on the box's behalf —
@@ -139,28 +139,11 @@ it ships in `docker compose`, so there's nothing extra to install on the host:
 ```
   inside box:  dbox-restart            ─┐  writes ./data/control/restart-request
   laptop:      dbox restart            ─┘  (just ssh's the box to run dbox-restart)
-                                          │
-  restarter sidecar (config/dbox-watch) ◀─┘  git pull --ff-only
-   (watches the control dir, holds the      docker compose up -d --build dev
-    Docker socket — see docker-compose.yml)
 ```
 
 `docker compose up -d` already starts the `restarter` service alongside
 `tailscale` and `dev`, so once the stack is up, `dbox restart` (laptop) or
-`dbox-restart` (inside the box) triggers a rebuild. Things to know:
-
-- **The socket lives only in the sidecar.** `restarter` mounts
-  `/var/run/docker.sock` (effectively root-on-host) — but `dev`, where Claude
-  runs, never does. Don't run this on an untrusted host.
-- **It rebuilds only `dev`** (`--build dev`), so the sidecar never recreates
-  itself mid-command; `tailscale` keeps the shared netns and `dev` re-attaches.
-- **It `git pull --ff-only`s the host clone first**, so push your changes before
-  triggering — the copy you edit under `~/workspace` is a *different* clone from
-  the one compose builds.
-- **The triggering session drops** (tmux + Claude included) when `dev` is
-  recreated. That's expected; reconnect once it's back up.
-- Needs `$PWD` set when you run `docker compose up` (the normal case from a
-  shell) so the sidecar can mount the clone at its own host path.
+`dbox-restart` (inside the box) triggers a rebuild.
 
 ## Where state lives
 

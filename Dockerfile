@@ -57,11 +57,16 @@ COPY config/entrypoint.sh /usr/local/bin/entrypoint.sh
 # terminal profile so they produce the identical session layout.
 COPY config/dbox-session /usr/local/bin/dbox-session
 
+# In-container helper that requests a rebuild+restart of the stack (the dev
+# container can't reach the host Docker daemon, so it signals via the
+# bind-mounted control dir; the `restarter` compose sidecar acts on it).
+COPY config/dbox-restart /usr/local/bin/dbox-restart
+
 COPY config/tmux.conf /home/dev/.tmux.conf
 
 # Ownership + runtime dirs. ~/workspace and /etc/ssh/keys are bind-mount targets.
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/dbox-session \
-    && mkdir -p /run/sshd /etc/ssh/keys /home/dev/workspace /home/dev/.config/fish \
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/dbox-session /usr/local/bin/dbox-restart \
+    && mkdir -p /run/sshd /etc/ssh/keys /home/dev/workspace /home/dev/.config/fish /home/dev/.dbox-control \
     && chown -R dev:dev /home/dev
 
 EXPOSE 22

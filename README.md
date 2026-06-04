@@ -121,6 +121,7 @@ dbox exec git clone …      # ssh -t dev@dbox 'git clone …'
 dbox terminal Hello-World  # ssh -t dev@dbox dbox-session …   (tmux: shell + claude windows)
 dbox code Hello-World      # code --remote ssh-remote+dev@dbox /home/dev/workspace/Hello-World
 dbox ls                    # ssh dev@dbox tmux ls   (what's running, to reattach)
+dbox restart               # ssh dev@dbox dbox-restart  (rebuild + recreate the stack)
 dbox help                  # full usage
 ```
 
@@ -128,6 +129,38 @@ Paths are relative to `~/workspace` (a leading `/` or `~` is taken literally; no
 means `~/workspace`). The box defaults to the tailnet name `dbox` — point it elsewhere
 with `DBOX_HOST=<name>`. `dbox code` additionally needs the [`code` CLI](https://code.visualstudio.com/docs/configure/command-line)
 and the Remote-SSH extension on your laptop.
+
+## Rebuilding / restarting from inside
+
+The dev container can't reach the host's Docker daemon, so it can't restart
+itself directly. A small **`restarter` sidecar** does it on the box's behalf —
+it ships in `docker compose`, so there's nothing extra to install on the host:
+
+```
+  inside box:  dbox-restart            ─┐  writes ./data/control/restart-request
+  laptop:      dbox restart            ─┘  (just ssh's the box to run dbox-restart)
+                                          │
+  restarter sidecar (config/dbox-watch) ◀─┘  git pull --ff-only
+   (watches the control dir, holds the      docker compose up -d --build dev
+    Docker socket — see docker-compose.yml)
+```
+
+`docker compose up -d` already starts the `restarter` service alongside
+`tailscale` and `dev`, so once the stack is up, `dbox restart` (laptop) or
+`dbox-restart` (inside the box) triggers a rebuild. Things to know:
+
+- **The socket lives only in the sidecar.** `restarter` mounts
+  `/var/run/docker.sock` (effectively root-on-host) — but `dev`, where Claude
+  runs, never does. Don't run this on an untrusted host.
+- **It rebuilds only `dev`** (`--build dev`), so the sidecar never recreates
+  itself mid-command; `tailscale` keeps the shared netns and `dev` re-attaches.
+- **It `git pull --ff-only`s the host clone first**, so push your changes before
+  triggering — the copy you edit under `~/workspace` is a *different* clone from
+  the one compose builds.
+- **The triggering session drops** (tmux + Claude included) when `dev` is
+  recreated. That's expected; reconnect once it's back up.
+- Needs `$PWD` set when you run `docker compose up` (the normal case from a
+  shell) so the sidecar can mount the clone at its own host path.
 
 ## Where state lives
 
@@ -142,3 +175,4 @@ Everything persistent is under `./data/` (git-ignored), one folder to back up or
 | `vscode-server` | `~/.vscode-server`    | VS Code server + Remote settings (terminal profiles) |
 | `sshkeys`       | `/etc/ssh/keys`       | SSH host keys                                        |
 | `tailscale`     | `/var/lib/tailscale`  | tailnet identity                                     |
+| `control`       | `~/.dbox-control`     | restart-request channel (see Rebuilding / restarting) |

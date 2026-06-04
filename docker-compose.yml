@@ -41,4 +41,30 @@ services:
       - ${DBOX_DATA:-./data}/fish:/home/dev/.local/share/fish
       - ${DBOX_DATA:-./data}/vscode-server:/home/dev/.vscode-server
       - ${DBOX_DATA:-./data}/sshkeys:/etc/ssh/keys
+      # Control channel: `dbox-restart` drops a request here; the `restarter`
+      # service below picks it up and rebuilds/recreates this dev container.
+      - ${DBOX_DATA:-./data}/control:/home/dev/.dbox-control
+    restart: unless-stopped
+
+  # restarter — tiny sidecar that lets the box rebuild itself. It watches the
+  # control dir for a request from `dbox-restart` and runs `docker compose up -d
+  # --build dev` against the HOST daemon via the mounted socket. The socket
+  # (= root-on-host) lives ONLY here, never in `dev` where Claude runs.
+  restarter:
+    image: docker:cli
+    depends_on:
+      - dev
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount the compose clone at its OWN host path so `docker compose` resolves
+      # bind-mount paths (./data, build context) the way the host daemon expects.
+      - ${PWD}:${PWD}
+      - ${DBOX_DATA:-./data}/control:/control
+    working_dir: ${PWD}
+    environment:
+      PWD: ${PWD}                 # so the nested `docker compose` can re-resolve ${PWD}
+      DBOX_CONTROL_DIR: /control
+      # DBOX_RESTART_SCOPE: dev   # services to rebuild (default: just dev)
+      # DBOX_WATCH_INTERVAL: 5    # poll seconds
+    entrypoint: ["/bin/sh", "config/dbox-watch"]
     restart: unless-stopped

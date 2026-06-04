@@ -1,0 +1,27 @@
+#!/bin/sh
+# dbox-restart — request a rebuild + restart of the stack.
+#
+# Runs INSIDE the dev container (baked into the image, on PATH). The container
+# has no access to the host Docker daemon, so it cannot restart itself directly.
+# Instead it drops a timestamped request into the bind-mounted control dir; the
+# `restarter` compose sidecar (config/dbox-watch) sees it and runs:
+#     git pull --ff-only && docker compose up -d --build dev
+# against the HOST compose clone.
+#
+# Invoked by:
+#   • the `dbox restart` laptop CLI  ->  ssh dev@dbox dbox-restart
+#   • directly inside the box        ->  dbox-restart
+#
+# NB: the rebuild recreates THIS container, so the current ssh / tmux / Claude
+# session WILL drop. That is expected — reconnect once the host is back up.
+set -eu
+
+CONTROL_DIR="${DBOX_CONTROL_DIR:-$HOME/.dbox-control}"
+mkdir -p "$CONTROL_DIR"
+
+stamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf '%s\n' "$stamp" > "$CONTROL_DIR/restart-request"
+
+echo "dbox: restart requested at $stamp."
+echo "      The restarter sidecar will git-pull, rebuild, and recreate the dev container."
+echo "      This session will drop — reconnect with: ssh dev@\${DBOX_HOSTNAME:-dbox}"

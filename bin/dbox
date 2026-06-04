@@ -23,6 +23,9 @@ Usage:
                             (window 0: shell, window 1: claude)
   dbox exec <cmd...>        run a command on the box (≈ ssh dev@${HOST} ...)
   dbox ls                   list tmux sessions on the box
+  dbox restart              rebuild + recreate the dev container on the host
+                            (via the 'restarter' compose sidecar; DROPS your
+                            session — the dev container recreates itself)
   dbox help                 show this help
 
 Paths are relative to ~/workspace; a leading / or ~ is taken literally;
@@ -77,6 +80,14 @@ case "$cmd" in
 
   ls)
     exec ssh "$TARGET" tmux ls
+    ;;
+
+  restart)
+    # Can't drive the host Docker daemon from the laptop directly either, so we
+    # signal the box's control channel; the 'restarter' sidecar does the rebuild.
+    # This recreates the dev container, so the ssh connection drops mid-command —
+    # `|| true` keeps that expected drop from looking like a failure.
+    ssh "$TARGET" dbox-restart || true
     ;;
 
   help|-h|--help)

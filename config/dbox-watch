@@ -1,0 +1,52 @@
+#!/bin/sh
+# dbox-watch — runs in the `restarter` sidecar (image: docker:cli), NOT in dev.
+#
+# Watches the control dir for a restart-request written by `dbox-restart` inside
+# the dev container, then rebuilds + recreates the dev service against the HOST
+# Docker daemon (reached via the mounted /var/run/docker.sock).
+#
+# Why a sidecar rather than the dev container: only this minimal container holds
+# the Docker socket (= root-on-host); dev, where Claude runs, never does.
+#
+# Bind-mount paths: the repo is mounted at the SAME absolute path it has on the
+# host (compose `${PWD}:${PWD}` + working_dir ${PWD}), so when we shell out to
+# `docker compose` the daemon resolves `./data` etc. to the correct host paths.
+set -u
+
+CONTROL_DIR="${DBOX_CONTROL_DIR:-/control}"
+REQ="$CONTROL_DIR/restart-request"
+SCOPE="${DBOX_RESTART_SCOPE:-dev}"     # compose service(s) to rebuild
+INTERVAL="${DBOX_WATCH_INTERVAL:-5}"   # poll seconds
+
+mkdir -p "$CONTROL_DIR"
+
+# docker:cli is Alpine with no git; add it once for the `git pull` step below.
+command -v git >/dev/null 2>&1 || apk add --no-cache git >/dev/null 2>&1 || true
+
+# Sidecar runs as root but the repo is owned by the host user — placate git.
+git config --global --add safe.directory "$PWD" 2>/dev/null || true
+
+echo "[dbox-watch] watching $CONTROL_DIR every ${INTERVAL}s; rebuild scope='$SCOPE'"
+
+do_restart() {
+  echo "[dbox-watch] restart requested at $(cat "$REQ" 2>/dev/null || echo '?')"
+  # Sync the host compose clone first — it's a DIFFERENT clone from ~/workspace,
+  # so changes edited in the box must already be pushed for this to pick them up.
+  git pull --ff-only || echo "[dbox-watch] git pull failed — building current tree."
+  # Scope to `dev` so the sidecar never recreates ITSELF mid-command; tailscale
+  # keeps the shared netns alive and dev re-attaches after recreate.
+  docker compose up -d --build $SCOPE
+  echo "[dbox-watch] rebuild + recreate done."
+}
+
+# Clear any stale request from a previous boot so we don't rebuild on startup.
+rm -f "$REQ"
+
+# Poll loop (the cron-like watch). Existence-triggered: act, then clear.
+while :; do
+  if [ -f "$REQ" ]; then
+    do_restart || echo "[dbox-watch] restart failed; will retry on next request."
+    rm -f "$REQ"
+  fi
+  sleep "$INTERVAL"
+done

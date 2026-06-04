@@ -57,6 +57,8 @@ COPY config/entrypoint.sh /usr/local/bin/entrypoint.sh
 # terminal profile so they produce the identical session layout.
 COPY config/dbox-session /usr/local/bin/dbox-session
 
+COPY config/tmux.conf /home/dev/.tmux.conf
+
 # Ownership + runtime dirs. ~/workspace and /etc/ssh/keys are bind-mount targets.
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/dbox-session \
     && mkdir -p /run/sshd /etc/ssh/keys /home/dev/workspace /home/dev/.config/fish \

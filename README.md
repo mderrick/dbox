@@ -133,11 +133,12 @@ and the Remote-SSH extension on your laptop.
 
 Everything persistent is under `./data/` (git-ignored), one folder to back up or wipe:
 
-| `./data/…`  | mount                 | holds                         |
-| ----------- | --------------------- | ----------------------------- |
-| `workspace` | `~/workspace`         | your repos                    |
-| `claude`    | `~/.claude`           | Claude creds/settings/history |
-| `gh`        | `~/.config/gh`        | GitHub OAuth                  |
-| `fish`      | `~/.local/share/fish` | shell history                 |
-| `sshkeys`   | `/etc/ssh/keys`       | SSH host keys                 |
-| `tailscale` | `/var/lib/tailscale`  | tailnet identity              |
+| `./data/…`      | mount                 | holds                                                |
+| --------------- | --------------------- | ---------------------------------------------------- |
+| `workspace`     | `~/workspace`         | your repos                                           |
+| `claude`        | `~/.claude`           | Claude creds/settings/history                        |
+| `gh`            | `~/.config/gh`        | GitHub OAuth                                         |
+| `fish`          | `~/.local/share/fish` | shell history                                        |
+| `vscode-server` | `~/.vscode-server`    | VS Code server + Remote settings (terminal profiles) |
+| `sshkeys`       | `/etc/ssh/keys`       | SSH host keys                                        |
+| `tailscale`     | `/var/lib/tailscale`  | tailnet identity                                     |

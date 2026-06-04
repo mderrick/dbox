@@ -39,5 +39,6 @@ services:
       - ${DBOX_DATA:-./data}/claude:/home/dev/.claude
       - ${DBOX_DATA:-./data}/gh:/home/dev/.config/gh
       - ${DBOX_DATA:-./data}/fish:/home/dev/.local/share/fish
+      - ${DBOX_DATA:-./data}/vscode-server:/home/dev/.vscode-server
       - ${DBOX_DATA:-./data}/sshkeys:/etc/ssh/keys
     restart: unless-stopped

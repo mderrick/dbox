@@ -40,6 +40,10 @@ services:
       - ${DBOX_DATA:-./data}/gh:/home/dev/.config/gh
       - ${DBOX_DATA:-./data}/fish:/home/dev/.local/share/fish
       - ${DBOX_DATA:-./data}/vscode-server:/home/dev/.vscode-server
+      # Skill bodies live here; ~/.claude/skills holds symlinks into it. Persist
+      # it so installed skills (e.g. grill-me) survive a rebuild — otherwise the
+      # symlinks dangle because their targets live in the ephemeral layer.
+      - ${DBOX_DATA:-./data}/agents:/home/dev/.agents
       - ${DBOX_DATA:-./data}/sshkeys:/etc/ssh/keys
       # Control channel: `dbox-restart` drops a request here; the `restarter`
       # service below picks it up and rebuilds/recreates this dev container.

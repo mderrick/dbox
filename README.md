@@ -173,6 +173,7 @@ Everything persistent is under `./data/` (git-ignored), one folder to back up or
 | `gh`            | `~/.config/gh`        | GitHub OAuth                                         |
 | `fish`          | `~/.local/share/fish` | shell history                                        |
 | `vscode-server` | `~/.vscode-server`    | VS Code server + Remote settings (terminal profiles) |
+| `agents`        | `~/.agents`           | installed skill bodies (`~/.claude/skills` symlinks here) |
 | `sshkeys`       | `/etc/ssh/keys`       | SSH host keys                                        |
 | `tailscale`     | `/var/lib/tailscale`  | tailnet identity                                     |
 | `control`       | `~/.dbox-control`     | restart-request channel (see Rebuilding / restarting) |

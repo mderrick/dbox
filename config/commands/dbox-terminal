@@ -1,19 +1,24 @@
 #!/bin/sh
-# dbox-terminal — attach to (or create) a per-project tmux session running Claude.
+# dbox-terminal — attach to (or create) a per-directory tmux session running Claude.
 #
 # Single source of truth for the session layout, shared by:
-#   • the `dbox terminal` laptop CLI  ->  ssh -t dev@dbox dbox-terminal <path>
+#   • the `dbox terminal` laptop CLI  ->  ssh -t dev@dbox 'cd ~/workspace && exec dbox-terminal <path>'
 #   • the VS Code terminal profile    ->  exec dbox-terminal "$PWD"
 #
+# Path resolution is pure cd-semantics: no arg means "here" ($PWD), a relative
+# arg is resolved against $PWD, a leading / or ~ is taken literally. There is no
+# ~/workspace rooting in this script — the laptop CLI gets that by cd-ing to
+# ~/workspace before invoking us, so this tool stays a plain "open <dir>".
+#
 # Layout: window 0 "shell" (fish), window 1 "claude" (launched with
-# --remote-control "<session-name>" so the session is drivable from the Claude
-# mobile app under a per-project name — remote-first is the whole point of
-# running in this box). --continue resumes the most recent conversation in the
-# project dir, so even after the claude process is gone (container restart) the
-# rebuilt window picks up where it left off; on a brand-new dir it just starts
-# fresh. Attaches focused on claude. Create-then-attach is idempotent, so
-# reopening reattaches the live tmux session — which survives SSH drops (but not
-# container restarts; the conversation does, via --continue).
+# --remote-control "<label>" so the session is drivable from the Claude mobile
+# app under a recognisable name — remote-first is the whole point of running in
+# this box). --continue resumes the most recent conversation in the dir, so even
+# after the claude process is gone (container restart) the rebuilt window picks
+# up where it left off; on a brand-new dir it just starts fresh. Attaches focused
+# on claude. Create-then-attach is idempotent, so reopening reattaches the live
+# tmux session — which survives SSH drops (but not container restarts; the
+# conversation does, via --continue).
 set -eu
 
 WORKSPACE="$HOME/workspace"
@@ -27,45 +32,45 @@ case "${1:-}" in
   -n|--no-attach) no_attach=1; shift ;;
 esac
 
-# Resolve the path arg to an absolute dir (mirrors `dbox` resolve_path):
-#   ""  -> ~/workspace   /x -> literal   ~ -> $HOME   ~/x -> $HOME/x
-#   x   -> ~/workspace/x
+# Resolve the path arg to an absolute dir, cd-style:
+#   ""  -> $PWD   /x -> literal   ~ -> $HOME   ~/x -> $HOME/x   x -> $PWD/x
+# Expand ~ ourselves first (a non-interactive caller passes the literal string
+# "~"), then canonicalize with realpath -m (-m: don't require the dir to exist,
+# so brand-new checkouts still resolve) to collapse any ./ or ../ — so the same
+# dir always maps to the same session name.
 arg="${1:-}"
 case "$arg" in
-  "")    dir="$WORKSPACE" ;;
-  /*)    dir="$arg" ;;
+  "")    dir="$PWD" ;;
   "~")   dir="$HOME" ;;
   "~/"*) dir="$HOME/${arg#\~/}" ;;
-  *)     dir="$WORKSPACE/$arg" ;;
+  /*)    dir="$arg" ;;
+  *)     dir="$PWD/$arg" ;;
 esac
+dir="$(realpath -m -- "$dir")"
 
-# Two names, both from the dir's path relative to ~/workspace (when under it),
-# else its basename:
-#   • tmux session name (-s): the full relative path, sanitized (/, ., space ->
-#     -). Unique by construction, so reattach never lands on the wrong checkout.
-#   • --remote-control label (shown in the Claude app): "<leaf> (<namespace>)",
-#     e.g. "api (github.com/acme)" — readable-first, unique-by-suffix. Degrades
-#     to the bare leaf for dirs with no namespace (the baseline session, ad-hoc
-#     `dbox terminal ~/x`, the VS Code $PWD profile).
-case "$dir" in
-  "$WORKSPACE"/*) rel="${dir#"$WORKSPACE"/}" ;;
-  *)              rel="$(basename "$dir")" ;;
-esac
-name="$(printf '%s' "$rel" | tr './ ' '-')"
-[ -n "$name" ] || name="workspace"
-leaf="$(basename "$rel")"
-case "$rel" in
-  */*) label="$leaf (${rel%/*})" ;;
-  *)   label="$leaf" ;;
-esac
+# tmux session name (-s): the absolute path, sanitized (/, ., space -> -), with
+# the leading dash (from the leading /) stripped. Unique by construction across
+# every distinct dir, so reattach never lands on the wrong checkout.
+#   /home/dev/workspace/acme/api -> home-dev-workspace-acme-api
+name="$(printf '%s' "$dir" | tr '/. ' '-')"
+name="${name#-}"
+name="${name%-}"
+[ -n "$name" ] || name="root"
 
-# Workspace root (no path arg, or ~/workspace given literally) is the canonical
-# "home base" session, not a project. Give it a fixed name + friendly label so
-# it's the same session the entrypoint pre-creates at boot and that `dbox
-# terminal` with no path attaches to — one "dbox main", not a stray "workspace".
-if [ "$dir" = "$WORKSPACE" ]; then
-  name="main"
-  label="dbox main"
+# --remote-control label (shown in the Claude app): readable, not necessarily
+# unique (uniqueness lives in the tmux name above).
+#   • git repo  -> the repo's top-level dir name, e.g. "api" (even from a subdir)
+#   • else      -> the path relative to ~/workspace ("acme/notes"), or the
+#                  absolute path when outside ~/workspace. The workspace root
+#                  itself has an empty relative path, so it degrades to "workspace".
+if repo_root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)"; then
+  label="$(basename "$repo_root")"
+else
+  case "$dir" in
+    "$WORKSPACE")   label="workspace" ;;
+    "$WORKSPACE"/*) label="${dir#"$WORKSPACE"/}" ;;
+    *)              label="$dir" ;;
+  esac
 fi
 
 if ! tmux has-session -t "$name" 2>/dev/null; then

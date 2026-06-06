@@ -60,12 +60,11 @@ claude        # Opens a URL — auth in your laptop browser
 ## Usage
 
 ```bash
-# Clone a repo onto the dev container (namespaced by host/owner so same-named
-# repos from different owners or forges never collide)
-ssh -t dev@dbox 'git clone https://github.com/octocat/Hello-World.git ~/workspace/github.com/octocat/Hello-World'
+# Clone a repo onto the dev container, into a flat dir under ~/workspace
+ssh -t dev@dbox 'git clone https://github.com/octocat/Hello-World.git ~/workspace/Hello-World'
 
 # Start (or re-attach) a REMOTE Claude session in a tmux named "claude-hello-world"
-ssh -t dev@dbox 'tmux new -As claude-hello-world -c ~/workspace/github.com/octocat/Hello-World claude --remote-control'
+ssh -t dev@dbox 'tmux new -As claude-hello-world -c ~/workspace/Hello-World claude --remote-control'
 ```
 
 Detach with the [`Ctrl-b` then `d`](https://research.it.iastate.edu/guides/pronto/interactive_computing/tmux/#detach-from-a-session) shortcut — this keeps Claude running, so you can close your laptop. Re-attach later by
@@ -97,7 +96,7 @@ The VS Code integrated terminal runs _inside_ dbox, so it can launch Claude dire
 "terminal.integrated.defaultProfile.linux": "dbox"
 ```
 
-New terminals will now open directly into a per-project tmux session (shell + claude windows), auto-attaching if one already exists for that directory. The claude window is launched with `--remote-control "<project-name>"`, so the same session can be driven from the Claude mobile app under a recognisable per-project name — remote-first by default. It also passes `--continue`, so reopening a project resumes its most recent conversation (even after a container restart kills the live process); a brand-new project just starts fresh.
+New terminals will now open directly into a per-directory tmux session (shell + claude windows), auto-attaching if one already exists for that directory. The claude window is launched with `--remote-control "<label>"` — the git repo name if the directory is a repo, otherwise its path relative to `~/workspace` — so the same session can be driven from the Claude mobile app under a recognisable name, remote-first by default. It also passes `--continue`, so reopening a directory resumes its most recent conversation (even after a container restart kills the live process); a brand-new directory just starts fresh.
 
 ### Reaching a dev server
 
@@ -119,16 +118,16 @@ Then, each `dbox` command maps to a raw equivalent from above:
 ```bash
 dbox                       # ssh -t dev@dbox  (interactive shell in ~/workspace)
 dbox exec git clone …      # ssh -t dev@dbox 'git clone …'
-dbox terminal github.com/octocat/Hello-World  # ssh -t dev@dbox dbox-terminal …   (tmux: shell + remote-control claude windows)
-dbox code github.com/octocat/Hello-World      # code --remote ssh-remote+dev@dbox /home/dev/workspace/github.com/octocat/Hello-World
+dbox terminal Hello-World  # ssh -t dev@dbox 'cd ~/workspace && exec dbox-terminal Hello-World'  (tmux: shell + remote-control claude windows)
+dbox code Hello-World      # code --remote ssh-remote+dev@dbox /home/dev/workspace/Hello-World
 dbox ls                    # ssh dev@dbox tmux ls   (what's running, to reattach)
 dbox restart               # ssh dev@dbox dbox-restart  (rebuild + recreate the stack)
 dbox help                  # full usage
 ```
 
-Paths are relative to `~/workspace` (a leading `/` or `~` is taken literally; no path
-means `~/workspace`). The box defaults to the tailnet name `dbox` — point it elsewhere
-with `DBOX_HOST=<name>`. `dbox code` additionally needs the [`code` CLI](https://code.visualstudio.com/docs/configure/command-line)
+`terminal` and `code` require a path, resolved relative to `~/workspace` (a leading
+`/` or `~` is taken literally). The box defaults to the tailnet name `dbox` — point
+it elsewhere with `DBOX_HOST=<name>`. `dbox code` additionally needs the [`code` CLI](https://code.visualstudio.com/docs/configure/command-line)
 and the Remote-SSH extension on your laptop.
 
 ### dbox restart

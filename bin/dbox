@@ -18,8 +18,8 @@ dbox — make the remote dev box feel local (targets ${TARGET})
 
 Usage:
   dbox                      open an interactive shell in ~/workspace
-  dbox code [path]          open the remote path in VS Code (Remote-SSH)
-  dbox terminal [path]      attach/create a per-project tmux session
+  dbox code <path>          open the remote path in VS Code (Remote-SSH)
+  dbox terminal <path>      attach/create a per-directory tmux session
                             (window 0: shell, window 1: claude --remote-control)
   dbox exec <cmd...>        run a command on the box (≈ ssh dev@${HOST} ...)
   dbox ls                   list tmux sessions on the box
@@ -28,8 +28,8 @@ Usage:
                             session — the dev container recreates itself)
   dbox help                 show this help
 
-Paths are relative to ~/workspace; a leading / or ~ is taken literally;
-no path means ~/workspace. Override the host with DBOX_HOST=<name>.
+terminal and code require a path, resolved relative to ~/workspace (a leading
+/ or ~ is taken literally). Override the host with DBOX_HOST=<name>.
 EOF
 }
 
@@ -54,21 +54,26 @@ case "$cmd" in
     ;;
 
   code)
+    [ $# -gt 0 ] || { echo "dbox: code needs a path" >&2; usage >&2; exit 2; }
     if ! command -v code >/dev/null 2>&1; then
       echo "dbox: the 'code' CLI is not on PATH." >&2
       echo "      In VS Code: Cmd-Shift-P -> 'Shell Command: Install code command in PATH'." >&2
       exit 1
     fi
     # --folder-uri (not --remote <path>) so the folder reliably opens even when
-    # a VS Code window is already focused on this remote.
-    exec code --folder-uri "vscode-remote://ssh-remote+${TARGET}$(resolve_path "${1:-}")"
+    # a VS Code window is already focused on this remote. The URI is built here on
+    # the laptop, so the path must be resolved client-side (relative -> ~/workspace).
+    exec code --folder-uri "vscode-remote://ssh-remote+${TARGET}$(resolve_path "$1")"
     ;;
 
   terminal)
     # Session layout lives in /usr/local/bin/dbox-terminal on the box, so this
-    # CLI and the VS Code terminal profile share one implementation. The box
-    # script resolves the path (relative to ~/workspace) and derives the name.
-    exec ssh -t "$TARGET" dbox-terminal "${1:-}"
+    # CLI and the VS Code terminal profile share one implementation. dbox-terminal
+    # is cd-relative, so we cd to ~/workspace first: a relative arg roots there,
+    # a leading / or ~ is still taken literally. A path is required — the box has
+    # no meaningful "current directory" for the no-arg ($PWD) default to use.
+    [ $# -gt 0 ] || { echo "dbox: terminal needs a path" >&2; usage >&2; exit 2; }
+    exec ssh -t "$TARGET" "cd ~/workspace && exec dbox-terminal $(printf '%q' "$1")"
     ;;
 
   exec)

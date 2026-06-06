@@ -46,12 +46,18 @@ else
   echo "WARNING: SSH_PUBKEY is empty — no authorized_keys installed; SSH login will fail." >&2
 fi
 
-# --- 4. Baseline tmux 'main' session ---------------------------------------
-# Always leave a 'main' session to attach to. Run as dev (not root) so the
-# session is yours. has-session || new-session = create only if absent
-# (idempotent); -d = detached background server. You still make per-project
-# sessions yourself. NB: this session dies on container restart (see header).
-su dev -s /bin/bash -c 'tmux has-session -t main 2>/dev/null || tmux new-session -d -s main' || true
+# --- 4. Baseline 'main' session: shell + remote Claude ----------------------
+# Reuse dbox-terminal (baked to /usr/local/bin) so the session layout has a
+# SINGLE source of truth — window 0 "shell" (fish), window 1 "claude"
+# --remote-control --continue. With no path it targets ~/workspace, which
+# dbox-terminal names "main" and labels "dbox main": the canonical home-base
+# session, identical to what `dbox terminal` (no path) attaches to. --no-attach
+# builds it detached and prints the name (discarded); run as dev so it's yours;
+# its internal has-session guard keeps it idempotent. --continue resumes the
+# latest ~/workspace conversation, so after a restart (which kills tmux + the
+# claude process) the rebuilt window picks up where it left off; first boot just
+# starts fresh. You still make per-project sessions yourself via dbox-terminal.
+su dev -s /bin/bash -c 'dbox-terminal --no-attach >/dev/null' || true
 
 # --- 5. Baked skills -> ~/.claude/skills ------------------------------------
 # Skills baked into the image (COPYd to /usr/local/share/dbox-skills) are

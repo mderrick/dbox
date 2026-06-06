@@ -59,6 +59,15 @@ case "$rel" in
   *)   label="$leaf" ;;
 esac
 
+# Workspace root (no path arg, or ~/workspace given literally) is the canonical
+# "home base" session, not a project. Give it a fixed name + friendly label so
+# it's the same session the entrypoint pre-creates at boot and that `dbox
+# terminal` with no path attaches to — one "dbox main", not a stray "workspace".
+if [ "$dir" = "$WORKSPACE" ]; then
+  name="main"
+  label="dbox main"
+fi
+
 if ! tmux has-session -t "$name" 2>/dev/null; then
   tmux new-session -d -s "$name" -c "$dir" -n shell
 fi

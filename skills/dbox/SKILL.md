@@ -18,16 +18,23 @@ hand the user attach instructions (see below).
 ## Clone a repo and start its session — `dbox-clone`
 
 ```sh
-dbox-clone --no-attach <repo> [name]
+dbox-clone --no-attach <url>
 ```
 
-- `<repo>` — `owner/name` (GitHub shorthand, uses gh auth so private repos work)
-  or a full git URL.
-- `[name]` — workspace dir / session name (default: the repo name).
+- `<url>` — a **fully-qualified git URL**: `https://`, `ssh://`, or scp-style
+  `git@host:path`. Owner/name shorthand is **not** accepted — the host is part
+  of the namespace, so it must be in the URL.
 
-Clones to `~/workspace/<name>`, then creates the detached session and prints its
-name. If it reports the dir already exists, don't re-clone — open it with
-`dbox-terminal` instead.
+Clones into a namespaced dir `~/workspace/<host>/<path>` (e.g.
+`github.com/octocat/Hello-World`, `gitlab.com/acme/backend/auth-api`) so
+same-named repos from different owners, forges, or GitLab subgroups never
+collide. Then creates the detached session and prints its tmux name. If it
+reports the dir already exists, don't re-clone — open it with `dbox-terminal`.
+
+Auth: GitHub HTTPS uses the baked `gh auth git-credential` helper, so private
+GitHub repos just work. Private **GitLab** (or other hosts) have no HTTPS helper
+— clone over SSH (`git@gitlab.com:…`, using a key the box holds) or add a PAT
+credential helper first.
 
 ## Open/create a session for an existing checkout — `dbox-terminal`
 
@@ -36,8 +43,10 @@ dbox-terminal --no-attach <name|path>
 ```
 
 Idempotently builds the per-project session for a dir already under
-`~/workspace`. The path resolves like `dbox-clone`'s name: relative to
-`~/workspace`, or a leading `/` / `~` taken literally.
+`~/workspace` (e.g. `github.com/octocat/Hello-World`). The arg resolves relative
+to `~/workspace`, or a leading `/` / `~` is taken literally. The tmux session
+name is the sanitized relative path (`github-com-octocat-Hello-World`); the
+Claude-app label is `<repo> (<namespace>)` (`Hello-World (github.com/octocat)`).
 
 ## How to attach (after creating a session)
 

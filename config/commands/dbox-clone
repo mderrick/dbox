@@ -2,15 +2,24 @@
 # dbox-clone — clone a repo into ~/workspace and open its per-project session.
 #
 # One implementation, three entry points (mirrors dbox-terminal's philosophy):
-#   • `dbox clone <repo> [name]` laptop CLI  ->  ssh -t dev@dbox dbox-clone ...
+#   • `dbox clone <url>` laptop CLI  ->  ssh -t dev@dbox dbox-clone ...
 #   • the dbox-clone skill (Claude inside the box)  ->  dbox-clone --no-attach ...
 #   • run by hand inside the box
 #
-# Clones <repo> into ~/workspace/<name>, then hands off to dbox-terminal so the
-# tmux layout (window 0 shell, window 1 claude --remote-control) has a single
-# source of truth. With --no-attach the session is created but not attached —
-# for callers that can't attach (Claude's non-interactive shell); otherwise it
-# attaches just like `dbox terminal`.
+# Clones into ~/workspace/<host>/<path> — a namespaced layout mirroring the
+# remote, so two repos sharing a name never collide: github.com/x/api,
+# github.com/y/api, and gitlab.com/x/api all land in distinct dirs, and GitLab
+# subgroups (acme/backend/api vs acme/frontend/api) stay distinct too. Then
+# hands off to dbox-terminal so the tmux layout (window 0 shell, window 1
+# claude --remote-control) has a single source of truth. With --no-attach the
+# session is created but not attached — for callers that can't attach (Claude's
+# non-interactive shell); otherwise it attaches just like `dbox terminal`.
+#
+# A fully-qualified clone URL is required (no owner/name shorthand): the host is
+# part of the namespace, so it must be present in the input. GitHub HTTPS clones
+# authenticate via the baked `gh auth git-credential` helper, so private repos
+# just work; private GitLab / other hosts need their own auth (an SSH key the
+# box holds, or a PAT credential helper).
 set -eu
 
 WORKSPACE="$HOME/workspace"
@@ -22,36 +31,62 @@ case "${1:-}" in
   -n|--no-attach) attach_flag=--no-attach; shift ;;
 esac
 
-repo="${1:-}"
-if [ -z "$repo" ]; then
-  echo "usage: dbox-clone [--no-attach] <repo> [name]" >&2
-  echo "  <repo>  owner/name (GitHub shorthand) or a full git URL" >&2
-  echo "  [name]  workspace dir / session name (default: the repo name)" >&2
+url="${1:-}"
+if [ -z "$url" ]; then
+  echo "usage: dbox-clone [--no-attach] <url>" >&2
+  echo "  <url>  a fully-qualified git URL: https://, ssh://, or scp-style" >&2
+  echo "         git@host:path. Shorthand like owner/name is not accepted —" >&2
+  echo "         the host is part of the namespace, so paste the real URL." >&2
   exit 2
 fi
-name="${2:-}"
 
-# Derive the workspace dir name from the repo when not given: strip any leading
-# path and a trailing .git (github.com/octocat/Hello-World.git -> Hello-World).
-if [ -z "$name" ]; then
-  name="${repo##*/}"
-  name="${name%.git}"
+# Parse <host>/<path> out of the URL. Two shapes:
+#   scheme://[user@]host[:port]/path(.git)   https://, ssh://, git://
+#   [user@]host:path(.git)                   scp-style ssh
+# The *://* arm must come first: scp-style's pattern (*:*/*) would also match a
+# URL's "scheme://...".
+case "$url" in
+  *://*)
+    rest="${url#*://}"        # [user@]host[:port]/path
+    rest="${rest#*@}"         # strip any user@
+    hostport="${rest%%/*}"    # host[:port]
+    host="${hostport%%:*}"    # drop any :port
+    path="${rest#*/}"         # everything after the first /
+    ;;
+  *@*:*|*:*/*)
+    rest="${url#*@}"          # host:path  (strip any user@)
+    host="${rest%%:*}"
+    path="${rest#*:}"
+    ;;
+  *)
+    echo "dbox-clone: '$url' isn't a git URL (want https://, ssh://, or git@host:path)" >&2
+    exit 2
+    ;;
+esac
+
+# Normalise: lowercase the host (case-insensitive), then strip a trailing slash
+# and a trailing .git from the path.
+host="$(printf '%s' "$host" | tr 'A-Z' 'a-z')"
+path="${path%/}"
+path="${path%.git}"
+
+if [ -z "$host" ] || [ -z "$path" ]; then
+  echo "dbox-clone: couldn't parse host/path from '$url'" >&2
+  exit 2
 fi
-dest="$WORKSPACE/$name"
+
+rel="$host/$path"
+dest="$WORKSPACE/$rel"
 
 if [ -e "$dest" ]; then
-  echo "dbox-clone: $dest already exists — open it with: dbox terminal $name" >&2
+  echo "dbox-clone: $dest already exists — open it with: dbox terminal $rel" >&2
   exit 1
 fi
 
-# owner/name with no scheme -> gh (reuses your gh auth, so private repos just
-# work); anything with a URL scheme or scp-style host -> plain git.
-case "$repo" in
-  *://*|*@*:*) git clone "$repo" "$dest" ;;
-  */*)         gh repo clone "$repo" "$dest" ;;
-  *)           echo "dbox-clone: '$repo' doesn't look like a repo (want owner/name or a git URL)" >&2; exit 2 ;;
-esac
+# Namespaced layout means parent dirs (host, owner, subgroups) may not exist yet.
+mkdir -p "$(dirname "$dest")"
+git clone "$url" "$dest"
 
 # Hand off to the shared launcher: build the tmux layout, then attach (or not).
 # Unquoted $attach_flag is intentional — empty expands to no arg.
-exec dbox-terminal $attach_flag "$name"
+exec dbox-terminal $attach_flag "$rel"

@@ -21,8 +21,9 @@ Usage:
   dbox code [path]          open the remote path in VS Code (Remote-SSH)
   dbox terminal [path]      attach/create a per-project tmux session
                             (window 0: shell, window 1: claude --remote-control)
-  dbox clone <repo> [name]  clone a repo into ~/workspace and open its session
-                            (repo: owner/name shorthand or a full git URL)
+  dbox clone <url>          clone a repo into ~/workspace/<host>/<path> and
+                            open its session (url: a full git URL — https://,
+                            ssh://, or git@host:path; no owner/name shorthand)
   dbox exec <cmd...>        run a command on the box (≈ ssh dev@${HOST} ...)
   dbox ls                   list tmux sessions on the box
   dbox restart              rebuild + recreate the dev container on the host
@@ -74,10 +75,10 @@ case "$cmd" in
     ;;
 
   clone)
-    # dbox-clone on the box clones into ~/workspace then hands off to
-    # dbox-terminal (which attaches), so -t for the interactive tmux. The repo
-    # and optional name pass straight through.
-    [ $# -gt 0 ] || { echo "dbox: clone needs a repo (owner/name or a git URL)" >&2; usage >&2; exit 2; }
+    # dbox-clone on the box clones into ~/workspace/<host>/<path> then hands off
+    # to dbox-terminal (which attaches), so -t for the interactive tmux. The URL
+    # passes straight through.
+    [ $# -gt 0 ] || { echo "dbox: clone needs a git URL (https://, ssh://, or git@host:path)" >&2; usage >&2; exit 2; }
     exec ssh -t "$TARGET" dbox-clone "$@"
     ;;
 

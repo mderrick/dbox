@@ -39,20 +39,31 @@ case "$arg" in
   *)     dir="$WORKSPACE/$arg" ;;
 esac
 
-# Session name: path relative to ~/workspace when under it (acme/api ->
-# acme-api), else the basename; sanitized (/, ., space -> -) for tmux.
+# Two names, both from the dir's path relative to ~/workspace (when under it),
+# else its basename:
+#   • tmux session name (-s): the full relative path, sanitized (/, ., space ->
+#     -). Unique by construction, so reattach never lands on the wrong checkout.
+#   • --remote-control label (shown in the Claude app): "<leaf> (<namespace>)",
+#     e.g. "api (github.com/acme)" — readable-first, unique-by-suffix. Degrades
+#     to the bare leaf for dirs with no namespace (the baseline session, ad-hoc
+#     `dbox terminal ~/x`, the VS Code $PWD profile).
 case "$dir" in
   "$WORKSPACE"/*) rel="${dir#"$WORKSPACE"/}" ;;
   *)              rel="$(basename "$dir")" ;;
 esac
 name="$(printf '%s' "$rel" | tr './ ' '-')"
 [ -n "$name" ] || name="workspace"
+leaf="$(basename "$rel")"
+case "$rel" in
+  */*) label="$leaf (${rel%/*})" ;;
+  *)   label="$leaf" ;;
+esac
 
 if ! tmux has-session -t "$name" 2>/dev/null; then
   tmux new-session -d -s "$name" -c "$dir" -n shell
 fi
 if ! tmux list-windows -t "$name" -F '#{window_name}' 2>/dev/null | grep -qx 'claude'; then
-  tmux new-window -t "$name" -c "$dir" -n claude claude --remote-control "$name" --continue
+  tmux new-window -t "$name" -c "$dir" -n claude claude --remote-control "$label" --continue
 fi
 tmux select-window -t "$name":claude
 if [ "$no_attach" -eq 1 ]; then

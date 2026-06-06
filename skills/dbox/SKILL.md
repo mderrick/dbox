@@ -27,12 +27,12 @@ dbox-clone --no-attach <repo> [name]
 
 Clones to `~/workspace/<name>`, then creates the detached session and prints its
 name. If it reports the dir already exists, don't re-clone — open it with
-`dbox-session` instead.
+`dbox-terminal` instead.
 
-## Open/create a session for an existing checkout — `dbox-session`
+## Open/create a session for an existing checkout — `dbox-terminal`
 
 ```sh
-dbox-session --no-attach <name|path>
+dbox-terminal --no-attach <name|path>
 ```
 
 Idempotently builds the per-project session for a dir already under
@@ -69,7 +69,7 @@ Before running it, REQUIRE both:
 After firing it, **stop** — don't run anything else. This Claude session is now
 broken: the rebuild kills tmux and this `claude` process, and **nothing restarts
 it automatically**. It won't exist again until someone manually recreates it
-once the host is back up (`ssh dev@dbox`, then `dbox-session <name>` / the Claude
+once the host is back up (`ssh dev@dbox`, then `dbox-terminal <name>` / the Claude
 mobile app). Treat the command as the last thing you do in this session.
 
 ## Notes

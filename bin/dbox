@@ -67,15 +67,15 @@ case "$cmd" in
     ;;
 
   terminal)
-    # Session layout lives in /usr/local/bin/dbox-session on the box, so this
+    # Session layout lives in /usr/local/bin/dbox-terminal on the box, so this
     # CLI and the VS Code terminal profile share one implementation. The box
     # script resolves the path (relative to ~/workspace) and derives the name.
-    exec ssh -t "$TARGET" dbox-session "${1:-}"
+    exec ssh -t "$TARGET" dbox-terminal "${1:-}"
     ;;
 
   clone)
     # dbox-clone on the box clones into ~/workspace then hands off to
-    # dbox-session (which attaches), so -t for the interactive tmux. The repo
+    # dbox-terminal (which attaches), so -t for the interactive tmux. The repo
     # and optional name pass straight through.
     [ $# -gt 0 ] || { echo "dbox: clone needs a repo (owner/name or a git URL)" >&2; usage >&2; exit 2; }
     exec ssh -t "$TARGET" dbox-clone "$@"

@@ -1,12 +1,12 @@
 #!/bin/sh
 # dbox-clone — clone a repo into ~/workspace and open its per-project session.
 #
-# One implementation, three entry points (mirrors dbox-session's philosophy):
+# One implementation, three entry points (mirrors dbox-terminal's philosophy):
 #   • `dbox clone <repo> [name]` laptop CLI  ->  ssh -t dev@dbox dbox-clone ...
 #   • the dbox-clone skill (Claude inside the box)  ->  dbox-clone --no-attach ...
 #   • run by hand inside the box
 #
-# Clones <repo> into ~/workspace/<name>, then hands off to dbox-session so the
+# Clones <repo> into ~/workspace/<name>, then hands off to dbox-terminal so the
 # tmux layout (window 0 shell, window 1 claude --remote-control) has a single
 # source of truth. With --no-attach the session is created but not attached —
 # for callers that can't attach (Claude's non-interactive shell); otherwise it
@@ -15,7 +15,7 @@ set -eu
 
 WORKSPACE="$HOME/workspace"
 
-# Pass-through flag for dbox-session. Empty = attach (default), like a human
+# Pass-through flag for dbox-terminal. Empty = attach (default), like a human
 # expects; --no-attach = create only, for callers that can't attach.
 attach_flag=
 case "${1:-}" in
@@ -54,4 +54,4 @@ esac
 
 # Hand off to the shared launcher: build the tmux layout, then attach (or not).
 # Unquoted $attach_flag is intentional — empty expands to no arg.
-exec dbox-session $attach_flag "$name"
+exec dbox-terminal $attach_flag "$name"

@@ -1,9 +1,9 @@
 #!/bin/sh
-# dbox-session — attach to (or create) a per-project tmux session running Claude.
+# dbox-terminal — attach to (or create) a per-project tmux session running Claude.
 #
 # Single source of truth for the session layout, shared by:
-#   • the `dbox terminal` laptop CLI  ->  ssh -t dev@dbox dbox-session <path>
-#   • the VS Code terminal profile    ->  exec dbox-session "$PWD"
+#   • the `dbox terminal` laptop CLI  ->  ssh -t dev@dbox dbox-terminal <path>
+#   • the VS Code terminal profile    ->  exec dbox-terminal "$PWD"
 #
 # Layout: window 0 "shell" (fish), window 1 "claude" (launched with
 # --remote-control "<session-name>" so the session is drivable from the Claude

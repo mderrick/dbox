@@ -55,17 +55,18 @@ COPY config/sshd_config /etc/ssh/sshd_config
 COPY config/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Shared tmux-session launcher, called by both the `dbox` CLI and the VS Code
-# terminal profile so they produce the identical session layout.
-COPY config/dbox-session /usr/local/bin/dbox-session
+# terminal profile so they produce the identical session layout. Installed as
+# `dbox-terminal` to match the `dbox terminal` CLI verb.
+COPY config/commands/dbox-terminal /usr/local/bin/dbox-terminal
 
 # In-container helper that requests a rebuild+restart of the stack (the dev
 # container can't reach the host Docker daemon, so it signals via the
 # bind-mounted control dir; the `restarter` compose sidecar acts on it).
-COPY config/dbox-restart /usr/local/bin/dbox-restart
+COPY config/commands/dbox-restart /usr/local/bin/dbox-restart
 
-# Clone-a-project helper: clones into ~/workspace then hands off to dbox-session.
+# Clone-a-project helper: clones into ~/workspace then hands off to dbox-terminal.
 # Single source of truth shared by the `dbox clone` laptop CLI and the dbox skill.
-COPY config/dbox-clone /usr/local/bin/dbox-clone
+COPY config/commands/dbox-clone /usr/local/bin/dbox-clone
 
 # Skills baked into the image. The entrypoint symlinks each into ~/.claude/skills
 # on boot, so they ship with the image and update on rebuild.
@@ -74,7 +75,7 @@ COPY skills/ /usr/local/share/dbox-skills/
 COPY config/tmux.conf /home/dev/.tmux.conf
 
 # Ownership + runtime dirs. ~/workspace and /etc/ssh/keys are bind-mount targets.
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/dbox-session /usr/local/bin/dbox-restart /usr/local/bin/dbox-clone \
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/dbox-terminal /usr/local/bin/dbox-restart /usr/local/bin/dbox-clone \
     && mkdir -p /run/sshd /etc/ssh/keys /home/dev/workspace /home/dev/.config/fish /home/dev/.dbox-control \
     && chown -R dev:dev /home/dev
 

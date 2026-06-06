@@ -6,10 +6,14 @@
 #   • the VS Code terminal profile    ->  exec dbox-session "$PWD"
 #
 # Layout: window 0 "shell" (fish), window 1 "claude" (launched with
-# --remote-control so the session is drivable from the Claude mobile app —
-# remote-first is the whole point of running in this box). Attaches focused on
-# claude. Create-then-attach is idempotent, so reopening reattaches the live
-# session — which survives SSH drops (but not container restarts).
+# --remote-control "<session-name>" so the session is drivable from the Claude
+# mobile app under a per-project name — remote-first is the whole point of
+# running in this box). --continue resumes the most recent conversation in the
+# project dir, so even after the claude process is gone (container restart) the
+# rebuilt window picks up where it left off; on a brand-new dir it just starts
+# fresh. Attaches focused on claude. Create-then-attach is idempotent, so
+# reopening reattaches the live tmux session — which survives SSH drops (but not
+# container restarts; the conversation does, via --continue).
 set -eu
 
 WORKSPACE="$HOME/workspace"
@@ -48,7 +52,7 @@ if ! tmux has-session -t "$name" 2>/dev/null; then
   tmux new-session -d -s "$name" -c "$dir" -n shell
 fi
 if ! tmux list-windows -t "$name" -F '#{window_name}' 2>/dev/null | grep -qx 'claude'; then
-  tmux new-window -t "$name" -c "$dir" -n claude claude --remote-control
+  tmux new-window -t "$name" -c "$dir" -n claude claude --remote-control "$name" --continue
 fi
 tmux select-window -t "$name":claude
 if [ "$no_attach" -eq 1 ]; then

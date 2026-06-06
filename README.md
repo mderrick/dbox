@@ -96,7 +96,7 @@ The VS Code integrated terminal runs _inside_ dbox, so it can launch Claude dire
 "terminal.integrated.defaultProfile.linux": "dbox"
 ```
 
-New terminals will now open directly into a per-project tmux session (shell + claude windows), auto-attaching if one already exists for that directory. The claude window is launched with `--remote-control`, so the same session can be driven from the Claude mobile app — remote-first by default.
+New terminals will now open directly into a per-project tmux session (shell + claude windows), auto-attaching if one already exists for that directory. The claude window is launched with `--remote-control "<project-name>"`, so the same session can be driven from the Claude mobile app under a recognisable per-project name — remote-first by default. It also passes `--continue`, so reopening a project resumes its most recent conversation (even after a container restart kills the live process); a brand-new project just starts fresh.
 
 ### Reaching a dev server
 

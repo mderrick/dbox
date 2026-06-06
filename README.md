@@ -120,7 +120,6 @@ Then, each `dbox` command maps to a raw equivalent from above:
 dbox                       # ssh -t dev@dbox  (interactive shell in ~/workspace)
 dbox exec git clone …      # ssh -t dev@dbox 'git clone …'
 dbox terminal github.com/octocat/Hello-World  # ssh -t dev@dbox dbox-terminal …   (tmux: shell + remote-control claude windows)
-dbox clone https://github.com/octocat/Hello-World.git  # ssh -t dev@dbox dbox-clone …   (clone into ~/workspace/<host>/<path>, then open its session)
 dbox code github.com/octocat/Hello-World      # code --remote ssh-remote+dev@dbox /home/dev/workspace/github.com/octocat/Hello-World
 dbox ls                    # ssh dev@dbox tmux ls   (what's running, to reattach)
 dbox restart               # ssh dev@dbox dbox-restart  (rebuild + recreate the stack)

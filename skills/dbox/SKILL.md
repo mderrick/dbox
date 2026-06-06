@@ -1,6 +1,6 @@
 ---
 name: dbox
-description: Drive the dbox dev container from inside it — clone repos into ~/workspace, create or open per-project Claude sessions, and request a rebuild/restart. Use when the user wants to set up a new repo in the box, start or attach a project's claude session, or restart/rebuild dbox — e.g. "clone X into dbox", "start a session for repo Y", "set up <repo> in the box", "restart the box".
+description: Drive the dbox dev container from inside it — set up repos in ~/workspace (git clone + session), create or open per-project Claude sessions, and request a rebuild/restart. Use when the user wants to set up a new repo in the box, start or attach a project's claude session, or restart/rebuild dbox — e.g. "clone X into dbox", "start a session for repo Y", "set up <repo> in the box", "restart the box".
 ---
 
 # dbox
@@ -15,21 +15,22 @@ running `claude --remote-control`, so it's drivable from the Claude mobile app.
 Claude's shell can't `tmux attach`, so **always create sessions detached** and
 hand the user attach instructions (see below).
 
-## Clone a repo and start its session — `dbox-clone`
+## Set up a new repo — `git clone` then `dbox-terminal`
+
+There's no dedicated clone command — just clone into `~/workspace` with a flat,
+memorable dir name, then start its session:
 
 ```sh
-dbox-clone --no-attach <url>
+git clone <url> ~/workspace/<name>
+dbox-terminal --no-attach <name>
 ```
 
-- `<url>` — a **fully-qualified git URL**: `https://`, `ssh://`, or scp-style
-  `git@host:path`. Owner/name shorthand is **not** accepted — the host is part
-  of the namespace, so it must be in the URL.
-
-Clones into a namespaced dir `~/workspace/<host>/<path>` (e.g.
-`github.com/octocat/Hello-World`, `gitlab.com/acme/backend/auth-api`) so
-same-named repos from different owners, forges, or GitLab subgroups never
-collide. Then creates the detached session and prints its tmux name. If it
-reports the dir already exists, don't re-clone — open it with `dbox-terminal`.
+Pick `<name>` from the repo (usually its basename, e.g. `hello-world`). Keep it
+unique under `~/workspace` — the tmux session name is derived from it, so two
+checkouts sharing a name would collide on one session. If the dir already
+exists, don't re-clone — notify the user that this url is already cloned and then offer
+to run `dbox-terminal` on the existing project, or to clone it into a new directory with a new
+unique name.
 
 Auth: GitHub HTTPS uses the baked `gh auth git-credential` helper, so private
 GitHub repos just work. Private **GitLab** (or other hosts) have no HTTPS helper
@@ -43,10 +44,10 @@ dbox-terminal --no-attach <name|path>
 ```
 
 Idempotently builds the per-project session for a dir already under
-`~/workspace` (e.g. `github.com/octocat/Hello-World`). The arg resolves relative
-to `~/workspace`, or a leading `/` / `~` is taken literally. The tmux session
-name is the sanitized relative path (`github-com-octocat-Hello-World`); the
-Claude-app label is `<repo> (<namespace>)` (`Hello-World (github.com/octocat)`).
+`~/workspace` (e.g. `hello-world`). The arg resolves relative to `~/workspace`,
+or a leading `/` / `~` is taken literally. The tmux session name and the
+Claude-app label are both the sanitized relative path (`hello-world`); a nested
+path like `acme/auth-api` gives label Claude `auth-api (acme)`.
 
 ## How to attach (after creating a session)
 

@@ -19,9 +19,9 @@ set -eu
 WORKSPACE="$HOME/workspace"
 
 # --no-attach (-n): build/ensure the session but don't attach, then print its
-# name. For callers that can't attach — Claude's non-interactive shell, or
-# dbox-clone driving this headlessly. Default (no flag) attaches, as a human at
-# `dbox terminal` / the VS Code profile expects.
+# name. For callers that can't attach — Claude's non-interactive shell (the dbox
+# skill). Default (no flag) attaches, as a human at `dbox terminal` / the VS Code
+# profile expects.
 no_attach=0
 case "${1:-}" in
   -n|--no-attach) no_attach=1; shift ;;

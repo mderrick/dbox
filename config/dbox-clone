@@ -1,0 +1,57 @@
+#!/bin/sh
+# dbox-clone — clone a repo into ~/workspace and open its per-project session.
+#
+# One implementation, three entry points (mirrors dbox-session's philosophy):
+#   • `dbox clone <repo> [name]` laptop CLI  ->  ssh -t dev@dbox dbox-clone ...
+#   • the dbox-clone skill (Claude inside the box)  ->  dbox-clone --no-attach ...
+#   • run by hand inside the box
+#
+# Clones <repo> into ~/workspace/<name>, then hands off to dbox-session so the
+# tmux layout (window 0 shell, window 1 claude --remote-control) has a single
+# source of truth. With --no-attach the session is created but not attached —
+# for callers that can't attach (Claude's non-interactive shell); otherwise it
+# attaches just like `dbox terminal`.
+set -eu
+
+WORKSPACE="$HOME/workspace"
+
+# Pass-through flag for dbox-session. Empty = attach (default), like a human
+# expects; --no-attach = create only, for callers that can't attach.
+attach_flag=
+case "${1:-}" in
+  -n|--no-attach) attach_flag=--no-attach; shift ;;
+esac
+
+repo="${1:-}"
+if [ -z "$repo" ]; then
+  echo "usage: dbox-clone [--no-attach] <repo> [name]" >&2
+  echo "  <repo>  owner/name (GitHub shorthand) or a full git URL" >&2
+  echo "  [name]  workspace dir / session name (default: the repo name)" >&2
+  exit 2
+fi
+name="${2:-}"
+
+# Derive the workspace dir name from the repo when not given: strip any leading
+# path and a trailing .git (github.com/octocat/Hello-World.git -> Hello-World).
+if [ -z "$name" ]; then
+  name="${repo##*/}"
+  name="${name%.git}"
+fi
+dest="$WORKSPACE/$name"
+
+if [ -e "$dest" ]; then
+  echo "dbox-clone: $dest already exists — open it with: dbox terminal $name" >&2
+  exit 1
+fi
+
+# owner/name with no scheme -> gh (reuses your gh auth, so private repos just
+# work); anything with a URL scheme or scp-style host -> plain git.
+case "$repo" in
+  *://*|*@*:*) git clone "$repo" "$dest" ;;
+  */*)         gh repo clone "$repo" "$dest" ;;
+  *)           echo "dbox-clone: '$repo' doesn't look like a repo (want owner/name or a git URL)" >&2; exit 2 ;;
+esac
+
+# Hand off to the shared launcher: build the tmux layout, then attach (or not).
+# Unquoted $attach_flag is intentional — empty expands to no arg.
+exec dbox-session $attach_flag "$name"

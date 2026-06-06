@@ -63,10 +63,18 @@ COPY config/dbox-session /usr/local/bin/dbox-session
 # bind-mounted control dir; the `restarter` compose sidecar acts on it).
 COPY config/dbox-restart /usr/local/bin/dbox-restart
 
+# Clone-a-project helper: clones into ~/workspace then hands off to dbox-session.
+# Single source of truth shared by the `dbox clone` laptop CLI and the dbox skill.
+COPY config/dbox-clone /usr/local/bin/dbox-clone
+
+# Skills baked into the image. The entrypoint symlinks each into ~/.claude/skills
+# on boot, so they ship with the image and update on rebuild.
+COPY skills/ /usr/local/share/dbox-skills/
+
 COPY config/tmux.conf /home/dev/.tmux.conf
 
 # Ownership + runtime dirs. ~/workspace and /etc/ssh/keys are bind-mount targets.
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/dbox-session /usr/local/bin/dbox-restart \
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/dbox-session /usr/local/bin/dbox-restart /usr/local/bin/dbox-clone \
     && mkdir -p /run/sshd /etc/ssh/keys /home/dev/workspace /home/dev/.config/fish /home/dev/.dbox-control \
     && chown -R dev:dev /home/dev
 

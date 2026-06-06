@@ -53,7 +53,23 @@ fi
 # sessions yourself. NB: this session dies on container restart (see header).
 su dev -s /bin/bash -c 'tmux has-session -t main 2>/dev/null || tmux new-session -d -s main' || true
 
-# --- 5. Hand off to sshd ----------------------------------------------------
+# --- 5. Baked skills -> ~/.claude/skills ------------------------------------
+# Skills baked into the image (COPYd to /usr/local/share/dbox-skills) are
+# symlinked into the persisted ~/.claude/skills each boot, so they ship with the
+# image and update on rebuild. ln -sfn refreshes each link without disturbing
+# the ~/.agents-managed skills (those have different names). chown -h so the
+# symlinks themselves are dev-owned. `|| true` keeps a hiccup from aborting boot.
+if [ -d /usr/local/share/dbox-skills ]; then
+  mkdir -p /home/dev/.claude/skills
+  for skill in /usr/local/share/dbox-skills/*/; do
+    [ -d "$skill" ] || continue
+    ln -sfn "${skill%/}" "/home/dev/.claude/skills/$(basename "$skill")"
+  done
+  chown -h 1000:1000 /home/dev/.claude/skills/* 2>/dev/null || true
+  chown 1000:1000 /home/dev/.claude/skills 2>/dev/null || true
+fi
+
+# --- 6. Hand off to sshd ----------------------------------------------------
 # exec replaces this script with sshd, so sshd becomes PID 1 and keeps the
 # container alive. -D = foreground (required in a container), -e = log to stderr
 # so `docker logs` shows SSH activity.

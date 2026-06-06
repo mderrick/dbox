@@ -14,6 +14,15 @@ set -eu
 
 WORKSPACE="$HOME/workspace"
 
+# --no-attach (-n): build/ensure the session but don't attach, then print its
+# name. For callers that can't attach — Claude's non-interactive shell, or
+# dbox-clone driving this headlessly. Default (no flag) attaches, as a human at
+# `dbox terminal` / the VS Code profile expects.
+no_attach=0
+case "${1:-}" in
+  -n|--no-attach) no_attach=1; shift ;;
+esac
+
 # Resolve the path arg to an absolute dir (mirrors `dbox` resolve_path):
 #   ""  -> ~/workspace   /x -> literal   ~ -> $HOME   ~/x -> $HOME/x
 #   x   -> ~/workspace/x
@@ -42,4 +51,8 @@ if ! tmux list-windows -t "$name" -F '#{window_name}' 2>/dev/null | grep -qx 'cl
   tmux new-window -t "$name" -c "$dir" -n claude claude --remote-control
 fi
 tmux select-window -t "$name":claude
+if [ "$no_attach" -eq 1 ]; then
+  printf '%s\n' "$name"
+  exit 0
+fi
 exec tmux attach -t "$name"

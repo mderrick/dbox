@@ -8,9 +8,17 @@
  \__,_|_.__/ \___/_/\_\
 ```
 
-An opinionated dev container that feels local but runs remote so you can persist your Claude
-Code CLI sessions after you close the lid. SSH manually and/or VS Code in over Tailscale with tmux, fish, git,
-gh, and Claude Code baked in. Access your claude CLI session from any device and the Claude mobile app.
+**The problem:** you want to develop exactly as you normally would — full VS Code,
+your shell, your tools — but be able to shut your laptop without killing your
+Claude Code session.
+
+**The solution:** dbox is a small dev container that runs on a remote box you
+control, joined to your [Tailscale](https://tailscale.com) tailnet. It *feels*
+local (SSH and VS Code Remote-SSH in over the tailnet) but it *persists*. Claude
+runs inside it under tmux with [`--remote-control`](https://code.claude.com/docs/en/remote-control) —
+a **stock Claude Code feature**, not something dbox invented — so a session
+survives SSH drops and laptop sleep, and the same session is drivable from any
+device, including the Claude mobile app.
 
 Clone this repo and make it yours.
 
@@ -33,57 +41,115 @@ Clone this repo and make it yours.
   └─────────────────────────────────────────────┘
 ```
 
-- **Tailscale sidecar** gives the container its tailnet identity (`dbox`), so it's
-  reachable from anywhere on your tailnet.
-- **Dev container state in `./data/`** (bind mounts) → auth, repos, and host key survive
-  rebuilds. tmux protects sessions across SSH drops (not container restarts).
+The **Tailscale sidecar** gives the container its tailnet identity (`dbox`), so
+it's reachable from anywhere on your tailnet. All persistent state lives in
+`./data/` on the host using Docker bind mounts, so auth, repos, and the host key survive
+rebuilds.
 
-## Quick install
+## Install
 
-On your host VPS/Mac Mini start up the dev container:
+### On the host (the box)
+
+This is the VPS / Mac mini that runs Docker. Bring up the stack:
 
 ```bash
 git clone https://github.com/mderrick/dbox
 cd dbox
-cp .env.example .env # Update .env with your credentials
-docker compose up -d --build # The container joins your tailnet as "dbox".
+cp .env.example .env
 ```
 
-On any device on the same tailnet you must authenticate your CLI tools on the dev container:
+Fill in `.env` — `TS_AUTHKEY` (your [Tailscale auth key](https://login.tailscale.com/admin/settings/keys))
+and `SSH_PUBKEY` (your laptop's SSH **public** key) are required; `GIT_USER_NAME` /
+`GIT_USER_EMAIL` and `DBOX_HOSTNAME` (the tailnet name, defaults to `dbox`) are
+optional. Then:
 
 ```bash
-ssh dev@dbox
-gh auth login # A fine-grained token is advised
-claude        # Opens a URL — auth in your laptop browser
+docker compose up -d --build   # the container joins your tailnet as "dbox"
 ```
 
-## Usage
+### On your laptop (the client)
+
+Authenticate your CLI tools inside the remote box (once):
 
 ```bash
-# Clone a repo onto the dev container, into a flat dir under ~/workspace
-ssh -t dev@dbox 'git clone https://github.com/octocat/Hello-World.git ~/workspace/Hello-World'
-
-# Start (or re-attach) a REMOTE Claude session in a tmux named "claude-hello-world"
-ssh -t dev@dbox 'tmux new -As claude-hello-world -c ~/workspace/Hello-World claude --remote-control'
+ssh dev@dbox 
+gh auth login   # a fine-grained token is advised
+claude          # opens a URL — auth in your laptop browser
+exit
 ```
 
-Detach with the [`Ctrl-b` then `d`](https://research.it.iastate.edu/guides/pronto/interactive_computing/tmux/#detach-from-a-session) shortcut — this keeps Claude running, so you can close your laptop. Re-attach later by
-running the same command again, from any device on the tailnet or from the Claude mobile app.
+Symlink the `dbox` helper onto your PATH so you don't have to type the raw
+`ssh` / `code` incantations by hand:
+
+```bash
+ln -sf "$PWD/bin/dbox" /usr/local/bin/dbox
+```
+
+For `dbox code` you also need the [`code` CLI](https://code.visualstudio.com/docs/configure/command-line)
+and the Remote-SSH extension in VS Code. The box defaults to the tailnet name
+`dbox`; point the laptop elsewhere with `DBOX_HOST=<name>`.
+
+## Quick use
+
+Clone a repo onto the box and open a Claude session in it:
+
+```bash
+dbox                                              # shell into ~/workspace on the box
+git clone https://github.com/octocat/Hello-World  # ...then clone, inside the box
+dbox-terminal Hello-World                          # attach a tmux: shell + claude --remote-control
+```
+
+Or in one line from the laptop:
+
+```bash
+ssh dev@dbox git clone https://github.com/octocat/Hello-World ~/workspace/Hello-World
+dbox terminal Hello-World
+```
+
+Detach from the tmux with [`Ctrl-b` then `d`](https://research.it.iastate.edu/guides/pronto/interactive_computing/tmux/#detach-from-a-session) — this keeps Claude running, so you can close your laptop. Re-attach later from any
+device on the tailnet by running the same commands, or pick the session up by name
+from the Claude mobile app.
 
 > The session survives SSH drops and your laptop sleeping. It does **not** survive
 > a container restart (`docker compose down`, host reboot) — that kills tmux and
-> the Claude process (so don't CTRL+C this tmux session either - just detach).
-> Your files and logins persist (they're mounted on the host);
+> the Claude process. Your files and logins persist; they're mounted on the host.
 
-## VSCode Integration
+## Commands
 
-You can also open the remote in VS Code, if you have the [`code` CLI](https://code.visualstudio.com/docs/configure/command-line) installed. VS Code has some nice feature built in to it's remote SSH development work flow. This is the best way to use this Docker image.
+Each laptop `dbox` command mostly just SSHes in and runs its in-box twin, so you
+can drive dbox from either side. Prefer raw `ssh` / `tmux` / `code`? Everything
+below is a thin wrapper — use the tools directly if you like.
 
-```bash
-code --remote ssh-remote+dev@dbox /home/dev/workspace/Hello-World
-```
+| What it does                              | From your laptop          | Inside the box           |
+| ----------------------------------------- | ------------------------- | ------------------------ |
+| Open a shell in `~/workspace`             | `dbox`                    | *(you're already here)*  |
+| Start / attach a Claude session for a dir | `dbox terminal <path>`    | `dbox-terminal <path>`   |
+| Open a dir in VS Code (Remote-SSH)        | `dbox code <path>`        | —                        |
+| List running tmux sessions                | `dbox ls`                 | `tmux ls`                |
+| Rebuild + restart the container           | `dbox restart`            | `dbox-restart`           |
+| Show help                                 | `dbox help`               | —                        |
 
-The VS Code integrated terminal runs _inside_ dbox, so it can launch Claude directly inside it — You can create a terminal profile for VSCode by adding to the **Remote [SSH] settings** (`Cmd-Shift-P` → "Preferences: Open Remote Settings (JSON)"):
+`terminal` and `code` take a path, resolved relative to `~/workspace` (a leading
+`/` or `~` is taken literally). A `dbox-terminal` session is starts tmux window 0 `shell`
+(fish) + window 1 `claude`; reopening the same directory re-attaches the live
+session, and `--continue` resumes its most recent conversation even after a
+container restart.
+
+`dbox restart` / `dbox-restart` is a small helper to pull latest and restart docker image on the remote host.
+
+All Claude session on the box use [Remote Control](https://code.claude.com/docs/en/remote-control) which is a **stock
+Claude Code feature**: a local session started with `claude --remote-control`
+keeps running on the machine but dbox launches every session's claude window with
+it automatically, labelled with the repo name, so your sessions show up under recognisable
+names in the app's session list. This is the whole point of running in the box: remote-first by default.
+
+## VS Code setup
+
+`dbox code <path>` opens the remote folder over [Remote-SSH](https://code.visualstudio.com/docs/remote/ssh) —
+the integrated terminal then runs *inside* the box. Add this terminal profile to
+your **Remote [SSH] settings** (`Cmd-Shift-P` → "Preferences: Open Remote Settings
+(JSON)") so new terminals open straight into a per-directory tmux session (shell +
+`claude --remote-control` windows), auto-attaching to an existing one:
 
 ```json
 "terminal.integrated.profiles.linux": {
@@ -96,57 +162,13 @@ The VS Code integrated terminal runs _inside_ dbox, so it can launch Claude dire
 "terminal.integrated.defaultProfile.linux": "dbox"
 ```
 
-New terminals will now open directly into a per-directory tmux session (shell + claude windows), auto-attaching if one already exists for that directory. The claude window is launched with `--remote-control "<label>"` — the git repo name if the directory is a repo, otherwise its path relative to `~/workspace` — so the same session can be driven from the Claude mobile app under a recognisable name, remote-first by default. It also passes `--continue`, so reopening a directory resumes its most recent conversation (even after a container restart kills the live process); a brand-new directory just starts fresh.
-
-### Reaching a dev server
-
-Your code's server binds _inside_ the container, so it isn't visible on your laptop by default however starting the server from a **VS Code integrated terminal** [auto-forwards it](https://code.visualstudio.com/docs/remote/ssh#_forwarding-a-port)
-back to your laptop's `localhost`. Run it in any other terminal (tmux, plain SSH) and you'll need to forward the port yourself with `ssh -L 3000:localhost:3000 dev@dbox`.
-
-## `dbox` CLI (optional helper)
-
-The commands above are all you need. If you'd rather not type the `ssh`/`tmux`/`code`
-incantations by hand, `bin/dbox` is a small bash wrapper that stands in for them —
-nothing more. Symlink it onto your **laptop's** PATH:
-
-```bash
-ln -sf "$PWD/bin/dbox" /usr/local/bin/dbox
-```
-
-Then, each `dbox` command maps to a raw equivalent from above:
-
-```bash
-dbox                       # ssh -t dev@dbox  (interactive shell in ~/workspace)
-dbox terminal Hello-World  # ssh -t dev@dbox 'cd ~/workspace && exec dbox-terminal Hello-World'  (tmux: shell + remote-control claude windows)
-dbox code Hello-World      # code --remote ssh-remote+dev@dbox /home/dev/workspace/Hello-World
-dbox ls                    # ssh dev@dbox tmux ls   (what's running, to reattach)
-dbox restart               # ssh dev@dbox dbox-restart  (rebuild + recreate the stack)
-dbox help                  # full usage
-```
-
-`terminal` and `code` require a path, resolved relative to `~/workspace` (a leading
-`/` or `~` is taken literally). The box defaults to the tailnet name `dbox` — point
-it elsewhere with `DBOX_HOST=<name>`. `dbox code` additionally needs the [`code` CLI](https://code.visualstudio.com/docs/configure/command-line)
-and the Remote-SSH extension on your laptop.
-
-### dbox restart
-
-The dev container can't reach the host's Docker daemon, so it can't restart
-itself directly. A small **`restarter` sidecar** does it on the box's behalf —
-it ships in `docker compose`, so there's nothing extra to install on the host:
-
-```
-  inside box:  dbox-restart            ─┐  writes ./data/control/restart-request
-  laptop:      dbox restart            ─┘  (just ssh's the box to run dbox-restart)
-```
-
-`docker compose up -d` already starts the `restarter` service alongside
-`tailscale` and `dev`, so once the stack is up, `dbox restart` (laptop) or
-`dbox-restart` (inside the box) triggers a rebuild.
+A dev server you start from a VS Code integrated terminal [auto-forwards](https://code.visualstudio.com/docs/remote/ssh#_forwarding-a-port) to your laptop's `localhost`; from a plain SSH / tmux terminal, forward it
+yourself with `ssh -L 3000:localhost:3000 dev@dbox`.
 
 ## Where state lives
 
-Everything persistent is under `./data/` (git-ignored), one folder to back up or wipe:
+Everything persistent is under `./data/` on the host (git-ignored), one folder to
+back up or wipe:
 
 | `./data/…`      | mount                 | holds                                                |
 | --------------- | --------------------- | ---------------------------------------------------- |
@@ -158,4 +180,5 @@ Everything persistent is under `./data/` (git-ignored), one folder to back up or
 | `agents`        | `~/.agents`           | installed skill bodies (`~/.claude/skills` symlinks here) |
 | `sshkeys`       | `/etc/ssh/keys`       | SSH host keys                                        |
 | `tailscale`     | `/var/lib/tailscale`  | tailnet identity                                     |
-| `control`       | `~/.dbox-control`     | restart-request channel (see Rebuilding / restarting) |
+| `control`       | `~/.dbox-control`     | restart-request channel (`restarter` sidecar)        |
+

@@ -2,9 +2,9 @@
 #
 # dbox — local helper that wraps ssh/code to the remote dev box.
 #
-# Closed set of subcommands; arbitrary commands are forwarded only via
-# `dbox exec`. Targets dev@${DBOX_HOST:-dbox} (short name resolves over
-# Tailscale MagicDNS). See README for the raw ssh/tmux/code equivalents.
+# Closed set of subcommands. Targets dev@${DBOX_HOST:-dbox} (short name
+# resolves over Tailscale MagicDNS). See README for the raw ssh/tmux/code
+# equivalents.
 
 set -euo pipefail
 
@@ -21,7 +21,6 @@ Usage:
   dbox code <path>          open the remote path in VS Code (Remote-SSH)
   dbox terminal <path>      attach/create a per-directory tmux session
                             (window 0: shell, window 1: claude --remote-control)
-  dbox exec <cmd...>        run a command on the box (≈ ssh dev@${HOST} ...)
   dbox ls                   list tmux sessions on the box
   dbox restart              rebuild + recreate the dev container on the host
                             (via the 'restarter' compose sidecar; DROPS your
@@ -74,13 +73,6 @@ case "$cmd" in
     # no meaningful "current directory" for the no-arg ($PWD) default to use.
     [ $# -gt 0 ] || { echo "dbox: terminal needs a path" >&2; usage >&2; exit 2; }
     exec ssh -t "$TARGET" "cd ~/workspace && exec dbox-terminal $(printf '%q' "$1")"
-    ;;
-
-  exec)
-    [ $# -gt 0 ] || { echo "dbox: exec needs a command" >&2; usage >&2; exit 2; }
-    tflag=()
-    [ -t 1 ] && tflag=(-t)
-    exec ssh "${tflag[@]}" "$TARGET" "$@"
     ;;
 
   ls)

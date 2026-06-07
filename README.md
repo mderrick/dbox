@@ -117,7 +117,6 @@ Then, each `dbox` command maps to a raw equivalent from above:
 
 ```bash
 dbox                       # ssh -t dev@dbox  (interactive shell in ~/workspace)
-dbox exec git clone …      # ssh -t dev@dbox 'git clone …'
 dbox terminal Hello-World  # ssh -t dev@dbox 'cd ~/workspace && exec dbox-terminal Hello-World'  (tmux: shell + remote-control claude windows)
 dbox code Hello-World      # code --remote ssh-remote+dev@dbox /home/dev/workspace/Hello-World
 dbox ls                    # ssh dev@dbox tmux ls   (what's running, to reattach)

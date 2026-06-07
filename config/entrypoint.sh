@@ -76,7 +76,23 @@ if [ -d /usr/local/share/dbox-skills ]; then
   chown 1000:1000 /home/dev/.claude/skills 2>/dev/null || true
 fi
 
-# --- 6. Hand off to sshd ----------------------------------------------------
+# --- 6. Git commit identity -------------------------------------------------
+# Written from GIT_USER_NAME/GIT_USER_EMAIL (set in .env) into dev's ~/.gitconfig
+# each boot, so identity is .env-driven: rotate with an .env edit + restart, no
+# rebuild — same model as SSH_PUBKEY above. ~/.gitconfig lives in the ephemeral
+# layer (only specific subdirs are persisted), so it's rewritten every boot; this
+# only adds user.name/user.email and leaves the baked gh credential-helper line
+# intact. Run as dev (su sets HOME=/home/dev) so the file stays dev-owned, and
+# %q-quote the values so names with spaces survive the inner shell. Each var is
+# applied only when non-empty, so an unset identity is simply skipped.
+if [ -n "${GIT_USER_NAME:-}" ]; then
+  su dev -s /bin/bash -c "git config --global user.name $(printf '%q' "$GIT_USER_NAME")" || true
+fi
+if [ -n "${GIT_USER_EMAIL:-}" ]; then
+  su dev -s /bin/bash -c "git config --global user.email $(printf '%q' "$GIT_USER_EMAIL")" || true
+fi
+
+# --- 7. Hand off to sshd ----------------------------------------------------
 # exec replaces this script with sshd, so sshd becomes PID 1 and keeps the
 # container alive. -D = foreground (required in a container), -e = log to stderr
 # so `docker logs` shows SSH activity.

@@ -106,6 +106,20 @@ ssh dev@dbox git clone https://github.com/octocat/Hello-World ~/workspace/Hello-
 dbox terminal Hello-World
 ```
 
+Or just ask Claude — the box ships with a `dbox` skill that does the clone +
+session for you. You don't even need to start a session first: the box boots a
+default home-base session (tmux `home-dev-workspace`, shown as **workspace** in
+the Claude app), so just open that and ask:
+
+```text
+Clone https://github.com/octocat/Hello-World into the box and start a session for it.
+```
+
+The skill clones into `~/workspace/Hello-World`, spins up the per-project tmux
+session (shell + `claude --remote-control`), and hands you back the attach
+instructions — all from the always-on `workspace` session, including from the
+mobile app.
+
 Detach from the tmux with [`Ctrl-b` then `d`](https://research.it.iastate.edu/guides/pronto/interactive_computing/tmux/#detach-from-a-session) — this keeps Claude running, so you can close your laptop. Re-attach later from any
 device on the tailnet by running the same commands, or pick the session up by name
 from the Claude mobile app.
